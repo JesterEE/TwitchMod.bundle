@@ -22,6 +22,11 @@ ICONS = {'search':    R('ic_search_c.png'),
          'authorize': R('ic_settings_c.png')}
 
 
+class BroadcastType:
+    ARCHIVE = 'archive'
+    UPLOAD = 'upload'
+    HIGHLIGHT = 'highlight'
+
 def Start():
     ObjectContainer.title1 = NAME
     ObjectContainer.art = R(ART)
@@ -216,11 +221,14 @@ def ChannelMenu(channel_name, stream=None, **kwargs):
     if stream is not None:
         oc.add(stream_vid(stream))  # Watch Live
     # Highlights
-    oc.add(DirectoryObject(key=Callback(ChannelVodsList, name=channel_name, broadcasts=False),
-                           title=unicode(L('highlights')), thumb=ICONS['videos']))
+    oc.add(DirectoryObject(key=Callback(ChannelVodsList, name=channel_name, broadcastType=BroadcastType.HIGHLIGHT),
+                           title=unicode(L('title_highlight')), thumb=ICONS['videos']))
     # Past Broadcasts
-    oc.add(DirectoryObject(key=Callback(ChannelVodsList, name=channel_name, broadcasts=True),
-                           title=unicode(L('past_broadcasts')), thumb=ICONS['videos']))
+    oc.add(DirectoryObject(key=Callback(ChannelVodsList, name=channel_name, broadcastType=BroadcastType.ARCHIVE),
+                           title=unicode(L('title_archive')), thumb=ICONS['videos']))
+    # Uploads
+    oc.add(DirectoryObject(key=Callback(ChannelVodsList, name=channel_name, broadcastType=BroadcastType.UPLOAD),
+                           title=unicode(L('title_upload')), thumb=ICONS['videos']))
     return oc
 
 
@@ -260,14 +268,14 @@ def FollowedChannelsList(apiurl=None, limit=100, **kwargs):
     return oc
 
 
-@route(PREFIX + '/channel/vods', broadcasts=bool, limit=int)
-def ChannelVodsList(name=None, apiurl=None, broadcasts=True, limit=PAGE_LIMIT, **kwargs):
+@route(PREFIX + '/channel/vods', broadcastType=String, limit=int)
+def ChannelVodsList(name=None, apiurl=None, broadcastType=BroadcastType.HIGHLIGHT, limit=PAGE_LIMIT, **kwargs):
     """Returns videoClipObjects for ``channel``. ignore vods that aren't v type."""
-    oc = ObjectContainer(title2=L('past_broadcasts') if broadcasts else L('highlights'))
+    oc = ObjectContainer(title2=L('title_'+broadcastType))
     try:
         videos = (api_request(apiurl) if apiurl is not None else
                   api_request('/channels/{}/videos'.format(name),
-                              params={'limit': limit, 'broadcasts': str(broadcasts).lower()}))
+                              params={'limit': limit, 'broadcast_type': broadcastType}))
     except APIError:
         return error_message(oc.title2, "Error")
     ignored = 0
@@ -286,7 +294,7 @@ def ChannelVodsList(name=None, apiurl=None, broadcasts=True, limit=PAGE_LIMIT, *
                                                                         fallback=ICONS['videos'])))
     if len(oc) + ignored >= limit:
         oc.add(NextPageObject(key=Callback(ChannelVodsList, apiurl=videos['_links']['next'],
-                                           broadcasts=broadcasts, limit=limit),
+                                           broadcastType=broadcastType, limit=limit),
                               title=unicode(L('more')), thumb=ICONS['more']))
     return oc
 
